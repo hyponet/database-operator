@@ -1,0 +1,10 @@
+apiVersion: database.ihypo.net/v1
+kind: MySQL
+metadata:
+  name: example-mysql
+spec:
+  type: Cluster
+  members: 3
+  auth:
+    rootPasswordSecret:
+      name: example-mysql-password

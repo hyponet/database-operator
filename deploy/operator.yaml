@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: database-operator
+  template:
+    metadata:
+      labels:
+        name: database-operator
+    spec:
+      serviceAccountName: database-operator
+      containers:
+        - name: database-operator
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
+          command:
+          - database-operator
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "database-operator"
