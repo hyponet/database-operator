@@ -68,7 +68,7 @@ spec:
               enum:
               - Cluster
               type: string
-            volume_claim_template:
+            volumeClaimTemplate:
               description: PersistentVolumeClaim is a user's request for and claim
                 to a persistent volume
               properties:

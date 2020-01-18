@@ -10,7 +10,7 @@ import (
 func NewPodSpec(instance *databasev1.MySQL, dbVolumeName string, usePv bool) corev1.PodSpec {
 	containers := []corev1.Container{
 		createMySqlServerContainer(instance, dbVolumeName),
-		createMySqlRouteContainer(instance),
+		//createMySqlRouteContainer(instance),
 	}
 	spec := corev1.PodSpec{Containers: containers}
 

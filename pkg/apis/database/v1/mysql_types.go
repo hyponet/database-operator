@@ -22,7 +22,7 @@ type MySQLSpec struct {
 	//Version    string `json:"version"`
 	//BackupCron string `json:"backup_cron"`
 
-	VolumeClaimTemplate *v1.PersistentVolumeClaim `json:"volume_claim_template,omitempty"`
+	VolumeClaimTemplate *v1.PersistentVolumeClaim `json:"volumeClaimTemplate,omitempty"`
 }
 
 // MySQLStatus defines the observed state of MySQL

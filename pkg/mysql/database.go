@@ -22,7 +22,8 @@ func (m MySQL) NewStsForCR() (*appsv1.StatefulSet, *corev1.Service, error) {
 	replica := m.resource.Spec.Members
 	// start first instance and init cluster
 	if !dbutil.IsDatabaseClusterInitialized(m.resource.Status.Conditions) {
-		replica = 1
+		// TODO use operator init cluster
+		//replica = 1
 	}
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
@@ -64,7 +65,7 @@ func (m MySQL) NewStsForCR() (*appsv1.StatefulSet, *corev1.Service, error) {
 			},
 			VolumeClaimTemplates: volumeClaimTemplates,
 			ServiceName:          m.resource.Name,
-			PodManagementPolicy:  appsv1.OrderedReadyPodManagement,
+			PodManagementPolicy:  appsv1.ParallelPodManagement,
 			UpdateStrategy:       appsv1.StatefulSetUpdateStrategy{},
 		},
 	}

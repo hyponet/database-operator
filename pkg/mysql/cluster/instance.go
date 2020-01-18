@@ -1,10 +1,12 @@
 package cluster
 
 import (
+	"bytes"
 	databasev1 "database-operator/pkg/apis/database/v1"
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"strings"
 )
 
 const (
@@ -18,7 +20,7 @@ func createMySqlServerContainer(instance *databasev1.MySQL, dbVolumeName string)
 	container := corev1.Container{
 		Name:    "mysql-server",
 		Image:   getMySqlServerImage(),
-		Command: getMySqlServerCommand(instance.Name),
+		Command: getMySqlServerCommand(instance),
 	}
 
 	// add env config
@@ -78,7 +80,7 @@ func createMySqlServerContainer(instance *databasev1.MySQL, dbVolumeName string)
 }
 
 func getMySqlServerImage() string {
-	return "mysql/mysql-server:8.0"
+	return "mysql/mysql-server:8.0.19"
 }
 
 const runTemplate = `
@@ -88,11 +90,47 @@ const runTemplate = `
  # Finds the replica index from the hostname, and uses this to define
  # a unique server id for this instance.
  index=$(cat /etc/hostname | grep -o '[^-]*$')
- /entrypoint.sh --server_id=$(expr $base + $index) --datadir=/var/lib/mysql --user=mysql --gtid_mode=ON --log-bin --binlog_checksum=NONE --enforce_gtid_consistency=ON --log-slave-updates=ON --binlog-format=ROW --master-info-repository=TABLE --relay-log-info-repository=TABLE --transaction-write-set-extraction=XXHASH64 --relay-log=%s-${index}-relay-bin --report-host="%s-${index}.%s" --log-error-verbosity=3
+ /entrypoint.sh --server-id=$(expr $base + $index) --datadir=/var/lib/mysql --user=mysql --gtid-mode=ON --binlog-checksum=NONE --enforce-gtid-consistency=ON --log-slave-updates=ON --binlog-format=ROW --master-info-repository=TABLE --relay-log-info-repository=TABLE --transaction-write-set-extraction=XXHASH64 --log-error-verbosity=3 %s
 `
 
-func getMySqlServerCommand(instanceName string) []string {
-	run := fmt.Sprintf(runTemplate, instanceName, instanceName, instanceName)
+func getMySqlServerCommand(instance *databasev1.MySQL) []string {
+	instanceName := instance.Name
+	var buf bytes.Buffer
+
+	buf.WriteString(fmt.Sprintf(`--log-bin="%s-${index}-bin"`, instanceName))
+	buf.WriteString(" ")
+	buf.WriteString(fmt.Sprintf(`--report-host="%s-${index}.%s"`, instanceName, instanceName))
+	buf.WriteString(" ")
+	buf.WriteString("--relay-log-recovery=ON")
+	buf.WriteString(" ")
+	buf.WriteString(fmt.Sprintf(`--relay-log=%s-${index}-relay-bin`, instanceName))
+	buf.WriteString(" ")
+
+	// group replication config
+	buf.WriteString("--plugin-load=group_replication.so")
+	buf.WriteString(" ")
+	buf.WriteString(fmt.Sprintf("--group-replication-group-name=%s", instance.UID))
+	buf.WriteString(" ")
+	buf.WriteString(`--group-replication-local-address="$PODIP:13306"`)
+	buf.WriteString(" ")
+
+	address := make([]string, instance.Spec.Members)
+	for i := int32(0); i < instance.Spec.Members; i++ {
+		address[i] = fmt.Sprintf("%s-%d.%s:13306", instanceName, i, instanceName)
+	}
+
+	buf.WriteString("--group-replication-group-seeds=")
+	buf.WriteString(strings.Join(address, ","))
+	buf.WriteString(" ")
+	buf.WriteString("--group-replication-start-on-boot=OFF")
+	buf.WriteString(" ")
+	buf.WriteString("--group-replication-bootstrap-group=OFF")
+	buf.WriteString(" ")
+	buf.WriteString("--group-replication-single-primary-mode=ON")
+	buf.WriteString(" ")
+	buf.WriteString("--group-replication-enforce-update-everywhere-checks=OFF")
+
+	run := fmt.Sprintf(runTemplate, buf.String())
 	return []string{
 		"/bin/bash",
 		"-ecx",
