@@ -4,13 +4,16 @@ import (
 	"context"
 	databasev1 "database-operator/pkg/apis/database/v1"
 	"database-operator/pkg/mysql"
+	"database-operator/pkg/utils/dbutil"
 	"database-operator/pkg/utils/stsutil"
 	"fmt"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -54,8 +57,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to secondary resource StatefulSets and requeue the owner MySQL
+	// Watch for changes to secondary resource StatefulSet/Service and requeue the owner MySQL
 	err = c.Watch(&source.Kind{Type: &appsv1.StatefulSet{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &databasev1.MySQL{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &databasev1.MySQL{},
 	})
@@ -101,7 +112,24 @@ func (r *ReconcileMySQL) Reconcile(request reconcile.Request) (reconcile.Result,
 
 	// Define a new mysql instance
 	mysqlInstance := mysql.NewMySqlInstance(instance.DeepCopy())
-	sts := mysqlInstance.NewStsForCR()
+	sts, svc, err := mysqlInstance.NewStsForCR()
+	if err != nil {
+		// init sts failed, record event - don't requeue
+		r.recordMySqlInstanceEvent(instance, EventTypeWarning, StsCreateFailed, err.Error())
+		return reconcile.Result{}, nil
+	}
+
+	if svc != nil {
+		// Set MySQL instance as the owner and controller
+		reqLogger.Info("Patch mysql cluster service", "svc.Namespace", svc.Namespace, "svc.Name", svc.Name)
+		if err := controllerutil.SetControllerReference(instance, svc, r.scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		if err := r.updateMySqlClusterSvc(ctx, svc); err != nil {
+			reqLogger.Error(err, "update mysql cluster service error")
+			return reconcile.Result{}, err
+		}
+	}
 
 	// Set MySQL instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, sts, r.scheme); err != nil {
@@ -119,7 +147,7 @@ func (r *ReconcileMySQL) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 
 		// StatefulSet created successfully - don't requeue
-		r.recordMySqlInstanceEvent(instance, stsCreated, fmt.Sprintf("Create new StatefulSet %s", sts.Name))
+		r.recordMySqlInstanceEvent(instance, EventTypeNormal, StsCreated, fmt.Sprintf("Create new StatefulSet %s", sts.Name))
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
@@ -134,7 +162,7 @@ func (r *ReconcileMySQL) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, nil
 	}
 
-	if err := r.updateMySqlInstanceStatusWithEventRecord(instance, status); err != nil {
+	if err := r.updateMySqlInstanceStatusWithEventRecord(ctx, instance, status); err != nil {
 		reqLogger.Error(err, "Update MysqlInstance status error")
 	}
 
@@ -150,6 +178,46 @@ func (r *ReconcileMySQL) Reconcile(request reconcile.Request) (reconcile.Result,
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileMySQL) updateMySqlInstanceStatusWithEventRecord(instance *databasev1.MySQL, status *databasev1.MySQLStatus) error {
+func (r *ReconcileMySQL) updateMySqlInstanceStatusWithEventRecord(ctx context.Context, instance *databasev1.MySQL, status *databasev1.MySQLStatus) error {
+	if !dbutil.IsDatabaseClusterInitialized(instance.Status.Conditions) {
+		if dbutil.IsDatabaseClusterInitialized(status.Conditions) {
+			r.recordMySqlInstanceEvent(instance, EventTypeNormal, ClusterInitialized, "init cluster succeed")
+		}
+	}
+
+	if !dbutil.IsDatabaseClusterReady(instance.Status.Conditions) {
+		if dbutil.IsDatabaseClusterReady(status.Conditions) {
+			r.recordMySqlInstanceEvent(instance, EventTypeNormal, ClusterReady, "cluster is ready")
+		}
+	} else {
+		if !dbutil.IsDatabaseClusterReady(status.Conditions) {
+			c := dbutil.GetDatabaseCondition(databasev1.ClusterReady, status.Conditions)
+			if c != nil {
+				r.recordMySqlInstanceEvent(instance, EventTypeWarning, ClusterNotReady, c.Message)
+			}
+		}
+	}
+	instance.Status = *status
+	return r.client.Status().Update(ctx, instance)
+}
+
+func (r *ReconcileMySQL) updateMySqlClusterSvc(ctx context.Context, svc *corev1.Service) error {
+	found := &corev1.Service{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		// if not found, create new svc
+		err = r.client.Create(ctx, svc)
+		if err != nil {
+			return err
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if !reflect.DeepEqual(found.Spec, svc.Spec) {
+		found.Spec = svc.Spec
+		return r.client.Update(ctx, found)
+	}
 	return nil
 }

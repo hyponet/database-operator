@@ -1,3 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-mysql-password
+type: Opaque
+data:
+  password: UGFzc3cwcmQh # Passw0rd!
+---
 apiVersion: database.ihypo.net/v1
 kind: MySQL
 metadata:

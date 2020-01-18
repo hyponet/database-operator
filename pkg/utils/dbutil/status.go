@@ -5,27 +5,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func IsDatabaseClusterControllerCreated(conditions []v1.DatabaseCondition) bool {
-	for _, c := range conditions {
-		if c.Type == v1.ControllerCreated && c.Status == v1.ConditionTrue {
-			return true
+func GetDatabaseCondition(dt v1.DatabaseConditionType, conditions []v1.DatabaseCondition) *v1.DatabaseCondition {
+	for i := range conditions {
+		c := conditions[i]
+		if c.Type == dt {
+			return &conditions[i]
 		}
+	}
+	return nil
+}
+
+func IsDatabaseClusterControllerCreated(conditions []v1.DatabaseCondition) bool {
+	c := GetDatabaseCondition(v1.ControllerCreated, conditions)
+	if c != nil {
+		return c.Status == v1.ConditionTrue
 	}
 	return false
 }
 
 func SetDatabaseClusterControllerCreated(conditions []v1.DatabaseCondition) []v1.DatabaseCondition {
 	now := metav1.Now()
-	for i := range conditions {
-		c := conditions[i]
-		if c.Type == v1.ControllerCreated {
-			if c.Status == v1.ConditionTrue {
-				return conditions
-			}
-			c.Status = v1.ConditionTrue
-			c.Time = &now
-			return conditions
-		}
+	c := GetDatabaseCondition(v1.ControllerCreated, conditions)
+	if c != nil {
+		c.Status = v1.ConditionTrue
+		c.Time = &now
+		return conditions
 	}
 	conditions = append(conditions, v1.DatabaseCondition{
 		Type:   v1.ControllerCreated,
@@ -36,26 +40,21 @@ func SetDatabaseClusterControllerCreated(conditions []v1.DatabaseCondition) []v1
 }
 
 func IsDatabaseClusterInitialized(conditions []v1.DatabaseCondition) bool {
-	for _, c := range conditions {
-		if c.Type == v1.ClusterInitialized && c.Status == v1.ConditionTrue {
-			return true
-		}
+	c := GetDatabaseCondition(v1.ClusterInitialized, conditions)
+	if c != nil {
+		return c.Status == v1.ConditionTrue
 	}
 	return false
 }
 
 func SetDatabaseClusterInitialized(conditions []v1.DatabaseCondition) []v1.DatabaseCondition {
 	now := metav1.Now()
-	for i := range conditions {
-		c := conditions[i]
-		if c.Type == v1.ClusterInitialized {
-			if c.Status == v1.ConditionTrue {
-				return conditions
-			}
-			c.Status = v1.ConditionTrue
-			c.Time = &now
-			return conditions
-		}
+	c := GetDatabaseCondition(v1.ClusterInitialized, conditions)
+	if c != nil {
+		c.Status = v1.ConditionTrue
+		c.Message = ""
+		c.Time = &now
+		return conditions
 	}
 	conditions = append(conditions, v1.DatabaseCondition{
 		Type:   v1.ClusterInitialized,
@@ -67,14 +66,12 @@ func SetDatabaseClusterInitialized(conditions []v1.DatabaseCondition) []v1.Datab
 
 func SetDatabaseClusterInitError(conditions []v1.DatabaseCondition, message string) []v1.DatabaseCondition {
 	now := metav1.Now()
-	for i := range conditions {
-		c := conditions[i]
-		if c.Type == v1.ClusterInitialized {
-			c.Status = v1.ConditionFalse
-			c.Message = message
-			c.Time = &now
-			return conditions
-		}
+	c := GetDatabaseCondition(v1.ClusterInitialized, conditions)
+	if c != nil {
+		c.Status = v1.ConditionFalse
+		c.Message = message
+		c.Time = &now
+		return conditions
 	}
 	conditions = append(conditions, v1.DatabaseCondition{
 		Type:    v1.ClusterInitialized,
@@ -86,26 +83,21 @@ func SetDatabaseClusterInitError(conditions []v1.DatabaseCondition, message stri
 }
 
 func IsDatabaseClusterReady(conditions []v1.DatabaseCondition) bool {
-	for _, c := range conditions {
-		if c.Type == v1.ClusterReady && c.Status == v1.ConditionTrue {
-			return true
-		}
+	c := GetDatabaseCondition(v1.ClusterReady, conditions)
+	if c != nil {
+		return c.Status == v1.ConditionTrue
 	}
 	return false
 }
 
 func SetDatabaseClusterReady(conditions []v1.DatabaseCondition) []v1.DatabaseCondition {
 	now := metav1.Now()
-	for i := range conditions {
-		c := conditions[i]
-		if c.Type == v1.ClusterReady {
-			if c.Status == v1.ConditionTrue {
-				return conditions
-			}
-			c.Status = v1.ConditionTrue
-			c.Time = &now
-			return conditions
-		}
+	c := GetDatabaseCondition(v1.ClusterReady, conditions)
+	if c != nil {
+		c.Status = v1.ConditionTrue
+		c.Time = &now
+		c.Message = ""
+		return conditions
 	}
 	conditions = append(conditions, v1.DatabaseCondition{
 		Type:   v1.ClusterReady,
@@ -117,14 +109,12 @@ func SetDatabaseClusterReady(conditions []v1.DatabaseCondition) []v1.DatabaseCon
 
 func SetDatabaseClusterNotReady(conditions []v1.DatabaseCondition, message string) []v1.DatabaseCondition {
 	now := metav1.Now()
-	for i := range conditions {
-		c := conditions[i]
-		if c.Type == v1.ClusterReady {
-			c.Status = v1.ConditionFalse
-			c.Message = message
-			c.Time = &now
-			return conditions
-		}
+	c := GetDatabaseCondition(v1.ClusterReady, conditions)
+	if c != nil {
+		c.Status = v1.ConditionFalse
+		c.Message = message
+		c.Time = &now
+		return conditions
 	}
 	conditions = append(conditions, v1.DatabaseCondition{
 		Type:    v1.ClusterReady,

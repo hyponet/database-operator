@@ -8,16 +8,25 @@ import (
 type eventType string
 
 const (
-	stsCreated      eventType = "StatefulSetCreated"
-	stsScaled                 = "StatefulSetScaled"
-	ClusterReady              = "ClusterReady"
-	ClusterNotReady           = "ClusterNotReady"
+	EventTypeNormal  eventType = "Normal"
+	EventTypeWarning           = "Warning"
 )
 
-func (r *ReconcileMySQL) recordMySqlInstanceEvent(instance *databasev1.MySQL, et eventType, message string) {
-	r.eventRecord.Event(instance, string(et), message, message)
+type reasonType string
+
+const (
+	StsCreated         reasonType = "StatefulSetCreated"
+	StsCreateFailed               = "StatefulSetCreateFailed"
+	StsScaled                     = "StatefulSetScaled"
+	ClusterInitialized            = "ClusterInitialized"
+	ClusterReady                  = "ClusterReady"
+	ClusterNotReady               = "ClusterNotReady"
+)
+
+func (r *ReconcileMySQL) recordMySqlInstanceEvent(instance *databasev1.MySQL, et eventType, reason reasonType, message string) {
+	r.eventRecord.Event(instance, string(et), string(reason), message)
 }
 
-func (r *ReconcileMySQL) recordStsEvent(sts *appsv1.StatefulSet, et eventType, message string) {
-	r.eventRecord.Event(sts, string(et), message, message)
+func (r *ReconcileMySQL) recordStsEvent(sts *appsv1.StatefulSet, et eventType, reason reasonType, message string) {
+	r.eventRecord.Event(sts, string(et), string(reason), message)
 }

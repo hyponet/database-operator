@@ -3,6 +3,22 @@ kind: CustomResourceDefinition
 metadata:
   name: mysqls.database.ihypo.net
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .spec.type
+    description: The HA type of mysql cluster
+    name: Type
+    type: string
+  - JSONPath: .spec.members
+    description: The number of mysql cluster
+    name: Members
+    type: integer
+  - JSONPath: .status.readyMembers
+    description: The number of readied mysql cluster
+    name: Ready
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
   group: database.ihypo.net
   names:
     kind: MySQL
@@ -36,7 +52,7 @@ spec:
           properties:
             auth:
               properties:
-                root_password_secret:
+                rootPasswordSecret:
                   properties:
                     name:
                       type: string
@@ -45,6 +61,7 @@ spec:
                   type: object
               type: object
             members:
+              format: int32
               minimum: 1
               type: integer
             type:
@@ -271,18 +288,21 @@ spec:
                 type: object
               type: array
             members:
+              format: int32
               type: integer
-            not_ready_members:
+            notReadyMembers:
+              format: int32
               type: integer
-            ready_members:
+            readyMembers:
+              format: int32
               type: integer
-            start_time:
+            startTime:
               format: date-time
               type: string
           required:
           - members
-          - not_ready_members
-          - ready_members
+          - notReadyMembers
+          - readyMembers
           type: object
       type: object
   version: v1

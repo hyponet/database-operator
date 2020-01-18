@@ -5,5 +5,5 @@ type Secret struct {
 }
 
 type DatabaseAuth struct {
-	RootPasswordSecret *Secret `json:"root_password_secret,omitempty"`
+	RootPasswordSecret *Secret `json:"rootPasswordSecret,omitempty"`
 }

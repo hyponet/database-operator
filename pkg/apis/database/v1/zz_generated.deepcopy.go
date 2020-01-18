@@ -5,6 +5,7 @@
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -114,7 +115,11 @@ func (in *MySQLList) DeepCopyObject() runtime.Object {
 func (in *MySQLSpec) DeepCopyInto(out *MySQLSpec) {
 	*out = *in
 	in.Auth.DeepCopyInto(&out.Auth)
-	in.VolumeClaimTemplate.DeepCopyInto(&out.VolumeClaimTemplate)
+	if in.VolumeClaimTemplate != nil {
+		in, out := &in.VolumeClaimTemplate, &out.VolumeClaimTemplate
+		*out = new(corev1.PersistentVolumeClaim)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

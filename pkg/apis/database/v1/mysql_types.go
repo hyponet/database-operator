@@ -14,7 +14,7 @@ type MySQLSpec struct {
 	Type string `json:"type"`
 
 	// +kubebuilder:validation:Minimum=1
-	Members int `json:"members"`
+	Members int32 `json:"members"`
 
 	Auth DatabaseAuth `json:"auth"`
 
@@ -22,16 +22,16 @@ type MySQLSpec struct {
 	//Version    string `json:"version"`
 	//BackupCron string `json:"backup_cron"`
 
-	VolumeClaimTemplate v1.PersistentVolumeClaim `json:"volume_claim_template,omitempty"`
+	VolumeClaimTemplate *v1.PersistentVolumeClaim `json:"volume_claim_template,omitempty"`
 }
 
 // MySQLStatus defines the observed state of MySQL
 type MySQLStatus struct {
-	Members         int                 `json:"members"`
-	ReadyMembers    int                 `json:"ready_members"`
-	NotReadyMembers int                 `json:"not_ready_members"`
+	Members         int32               `json:"members"`
+	ReadyMembers    int32               `json:"readyMembers"`
+	NotReadyMembers int32               `json:"notReadyMembers"`
 	Conditions      []DatabaseCondition `json:"conditions,omitempty"`
-	StartTime       *metav1.Time        `json:"start_time,omitempty"`
+	StartTime       *metav1.Time        `json:"startTime,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -40,6 +40,10 @@ type MySQLStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:scale:specpath=.spec.members,statuspath=.status.members
 // +kubebuilder:resource:path=mysqls,scope=Namespaced
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="The HA type of mysql cluster"
+// +kubebuilder:printcolumn:name="Members",type="integer",JSONPath=".spec.members",description="The number of mysql cluster"
+// +kubebuilder:printcolumn:name="Ready",type="integer",JSONPath=".status.readyMembers",description="The number of readied mysql cluster"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type MySQL struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

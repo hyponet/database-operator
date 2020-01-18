@@ -12,5 +12,5 @@ func DeepEqual(set1 *appsv1.StatefulSet, set2 *appsv1.StatefulSet) bool {
 
 	// compare pod config
 
-	return true
+	return false
 }
